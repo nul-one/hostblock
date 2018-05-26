@@ -12,8 +12,7 @@ setup(
     author = hostblock.__author__,
     author_email = hostblock.__author_email__,
     license = hostblock.__licence__,
-    packages = [ 'hostblock', 'hostblock.hosts' ],
-    package_data={'hostblock.hosts': ['*.hosts']},
+        packages = [ 'hostblock' ],
     entry_points={ 
         'console_scripts': [
             'hostblock=hostblock.__main__:main',

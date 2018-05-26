@@ -5,12 +5,10 @@ import argcomplete
 import argparse
 import json
 import os
-import pkg_resources
 import re
 import subprocess
 import sys
 import textwrap
-import hostblock.hosts
 
 global config_path
 
@@ -19,7 +17,7 @@ class BlockedHosts(set):
 
     def __init__(self, hosts = set(), redirect = '0.0.0.0'):
         self.redirect = redirect
-        self.update(hosts)
+        self.update(set(hosts))
         self.re = re.compile('^\s*((([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]))\s*(\#.*)?')
         super()
 
@@ -33,21 +31,22 @@ class BlockedHosts(set):
         return "BlockedHosts('{}', {})".format(set(self), self.redirect)
 
     def __str__(self):
-        delimiter = '\n{} '.format(self.redirect)
-        return delimiter + delimiter.join(list(self))
+        #delimiter = '\n{} '.format(self.redirect)
+        #return delimiter + delimiter.join(list(self))
+        return '\n'.join(list(self))
 
     def __add__(self, other):
         return BlockedHosts(set(self).union(set(other)), self.redirect)
 
     def __iadd__(self, other):
-        self.update(other)
+        self.update(set(other))
         return self
 
     def __sub__(self, other):
         return BlockedHosts(set(self).difference(set(other)), self.redirect)
 
     def __isub__(self, other):
-        self.difference_update(other)
+        self.difference_update(set(other))
         return self
         
     def load(self, hosts_data:str):
@@ -55,6 +54,10 @@ class BlockedHosts(set):
             found_host = self.re.match(line)
             if found_host is not None:
                 self.add(found_host.groups()[0])
+
+    def blockstring(self):
+        delimiter = '\n{} '.format(self.redirect)
+        return self.redirect + ' ' + delimiter.join(list(self))
 
 
 def __parse_args():
@@ -161,58 +164,33 @@ def update_hosts_file(hosts_file:str, blocked_hosts:BlockedHosts):
             found_host = host_re.match(line)
             if found_host is None:
                 existing_no_block_lines += line
-    if existing_no_block_lines[-1] == '\n':
-        existing_no_block_lines = existing_no_block_lines[:-1]
     with open(hosts_file, 'w') as f:
         print('Updating ' + hosts_file)
-        f.write(existing_no_block_lines + str(blocked_hosts))
+        f.write(existing_no_block_lines + blocked_hosts.blockstring())
 
 def init_local_config():
     if not os.path.isfile(config_path):
+        config = {}
+        config['blacklist'] = []
+        config['whitelist'] = []
         with open(config_path, 'w') as f:
-            f.write('{ "whitelist":[], "blacklist":[] }')
+            f.write(json.dumps(config))
 
-def get_local_config():
+def read_hosts():
+    # return 2 sets of hosts: blacklist, whitelist
     init_local_config()
+    config = {}
     with open(config_path) as f:
-        return json.loads(f.read())
+        config = json.loads(f.read())
+    return BlockedHosts(config['blacklist']), BlockedHosts(config['whitelist'])
 
-def set_local_config(config:dict):
+def write_hosts(blacklist:BlockedHosts, whitelist:BlockedHosts):
+    config = {}
+    config['blacklist'] = list(blacklist)
+    config['whitelist'] = list(whitelist)
     with open(config_path, 'w') as f:
         f.write(json.dumps(config))
 
-def add_to_local_config(set_blocked_hosts:BlockedHosts, which_list:str):
-    config = get_local_config()
-    blocked_hosts = BlockedHosts(set(config[which_list]))
-    blocked_hosts += set_blocked_hosts
-    config[which_list] = list(blocked_hosts)
-    set_local_config(config)
-
-def remove_from_local_config(set_blocked_hosts:BlockedHosts, which_list:str):
-    config = get_local_config()
-    blocked_hosts = BlockedHosts(set(config[which_list]))
-    blocked_hosts -= set_blocked_hosts
-    config[which_list] = list(blocked_hosts)
-    set_local_config(config)
-
-def clear_local_config(which_list:str):
-    config = get_local_config()
-    config[which_list] = []
-    set_local_config(config)
-
-def list_local_config(which_list:str):
-    config = get_local_config()
-    return config[which_list]
-
-def get_default_hosts():
-    blocked_hosts = BlockedHosts()
-    all_resources = pkg_resources.resource_listdir("hostblock.hosts", '.')
-    hosts_resources = [ s for s in all_resources if s.endswith(".hosts") ]
-    for f in hosts_resources:
-        hosts_data = pkg_resources.resource_string(
-            "hostblock.hosts", f).decode("utf-8")
-        blocked_hosts.load(hosts_data)
-    return blocked_hosts
 
 def main():
     global config_path
@@ -229,33 +207,39 @@ def main():
         sys.exit(0)
 
     if args.cmd == 'ab':
-        add_to_local_config(BlockedHosts(set(args.hosts)), 'blacklist')
+        black, white = read_hosts()
+        black += args.hosts
+        write_hosts(black, white)
     if args.cmd == 'rb':
-        remove_from_local_config(BlockedHosts(set(args.hosts)), 'blacklist')
+        black, white = read_hosts()
+        black -= args.hosts
+        write_hosts(black, white)
     if args.cmd == 'cb':
-        clear_local_config('blacklist')
+        black, white = read_hosts()
+        write_hosts(BlockedHosts(), white)
     if args.cmd == 'lb':
-        print('\n'.join(list_local_config('blacklist')))
+        black, white = read_hosts()
+        print(str(black))
     if args.cmd == 'aw':
-        add_to_local_config(BlockedHosts(set(args.hosts)), 'whitelist')
+        black, white = read_hosts()
+        white += args.hosts
+        write_hosts(black, white)
     if args.cmd == 'rw':
-        remove_from_local_config(BlockedHosts(set(args.hosts)), 'whitelist')
+        black, white = read_hosts()
+        white -= args.hosts
+        write_hosts(black, white)
     if args.cmd == 'cw':
-        clear_local_config('whitelist')
+        black, white = read_hosts()
+        write_hosts(black, BlockedHosts())
     if args.cmd == 'lw':
-        print('\n'.join(list_local_config('whitelist')))
+        black, white = read_hosts()
+        print(str(white))
     if args.cmd == 'list':
-        blocked_hosts = get_default_hosts()
-        local_config = get_local_config()
-        blocked_hosts += local_config['blacklist']
-        blocked_hosts -= local_config['whitelist']
-        print(blocked_hosts)
+        black, white = read_hosts()
+        print(str(black - white))
     if args.cmd == 'apply':
-        blocked_hosts = get_default_hosts()
-        local_config = get_local_config()
-        blocked_hosts += local_config['blacklist']
-        blocked_hosts -= local_config['whitelist']
-        update_hosts_file(args.hosts_file, blocked_hosts)
+        black, white = read_hosts()
+        update_hosts_file(args.hosts_file, black - white)
     sys.exit(0)
 
 if __name__ == "__main__":
