@@ -123,6 +123,10 @@ def __parse_args():
         "list",
         description='''List all hosts that will be blocked.''',
         )
+    parser_count = subparsers.add_parser(
+        "count",
+        description='''Count all hosts in blacklist and whitelist.''',
+        )
     parser_apply = subparsers.add_parser(
         "apply",
         description='''Apply blocked hosts to your hosts file.''',
@@ -237,6 +241,10 @@ def main():
     if args.cmd == 'list':
         black, white = read_hosts()
         print(str(black - white))
+    if args.cmd == 'count':
+        black, white = read_hosts()
+        print("blacklist: {}".format(len(black)))
+        print("whitelist: {}".format(len(white)))
     if args.cmd == 'apply':
         black, white = read_hosts()
         update_hosts_file(args.hosts_file, black - white)
