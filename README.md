@@ -19,7 +19,7 @@ Installation
 Usage
 -------------------------
 
-Run `hostblock apply` to add default list of malicious, aggressive advertising and tracking sites to your `/etc/hosts` file resolving to `0.0.0.0`. It will ask for sudo password.
+Run `hostblock apply` to add list of undesired hosts to your `/etc/hosts` file resolving to `0.0.0.0`. It will ask for sudo password.
 
 ### Local blacklist and whitelist
 
@@ -36,6 +36,7 @@ Here is how you can control your local list:
 - `hostblock cw` remove (clear) all hosts from your whitelist
 - `hostblock lw` list all hosts currently in your whitelist
 - `hostblock list` list hosts from blacklist that do not appear in whitelist
+- `hostblock count` show counts for blacklist and whitelist
 
 Importing
 -------------------------

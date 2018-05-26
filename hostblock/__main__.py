@@ -3,6 +3,7 @@ Main module for hostblock command line utility.
 """
 import argcomplete
 import argparse
+import errno
 import json
 import os
 import re
@@ -223,7 +224,11 @@ def main():
         write_hosts(BlockedHosts(), white)
     if args.cmd == 'lb':
         black, white = read_hosts()
-        print(str(black))
+        try:
+            print(str(black))
+        except IOError as e:
+            if e.errno != errno.EPIPE:
+                raise e
     if args.cmd == 'aw':
         black, white = read_hosts()
         white += args.hosts
@@ -237,10 +242,18 @@ def main():
         write_hosts(black, BlockedHosts())
     if args.cmd == 'lw':
         black, white = read_hosts()
-        print(str(white))
+        try:
+            print(str(white))
+        except IOError as e:
+            if e.errno != errno.EPIPE:
+                raise e
     if args.cmd == 'list':
         black, white = read_hosts()
-        print(str(black - white))
+        try:
+            print(str(black - white))
+        except IOError as e:
+            if e.errno != errno.EPIPE:
+                raise e
     if args.cmd == 'count':
         black, white = read_hosts()
         print("blacklist: {}".format(len(black)))
