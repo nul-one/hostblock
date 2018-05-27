@@ -2,7 +2,7 @@
 Block domains using hosts file entries.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __licence__ = "BSD"
 __year__ = "2018"
 __author__ = "Predrag Mandic"

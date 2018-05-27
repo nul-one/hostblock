@@ -121,7 +121,7 @@ def __parse_args():
         description='''List all hosts from local whitelist.''',
         )
     parser_list = subparsers.add_parser(
-        "list",
+        "list", aliases=["l"],
         description='''List all hosts that will be blocked.''',
         )
     parser_count = subparsers.add_parser(
@@ -247,7 +247,7 @@ def main():
         except IOError as e:
             if e.errno != errno.EPIPE:
                 raise e
-    if args.cmd == 'list':
+    if args.cmd in ('list', 'l'):
         black, white = read_hosts()
         try:
             print(str(black - white))
