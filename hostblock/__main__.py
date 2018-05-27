@@ -64,7 +64,7 @@ def __parse_args():
         help="Show version info and exit."
         )
     parser.add_argument(
-        "--config", action="store", type=str,
+        "--config", "-c", action="store", type=str,
         help='''Specify config file path. Defaults to '~/.hostblock'.'''
         )
     parser.add_argument(
