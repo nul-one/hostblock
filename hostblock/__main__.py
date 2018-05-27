@@ -124,7 +124,7 @@ def __parse_args():
         "apply",
         description='''Apply blocked hosts to your hosts file.''',
         )
-    def url_type(s, pat=re.compile(r"^\s*(https?://)?(([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?)([/#?\s].*)?$")):
+    def url_type(s, pat=re.compile(r"^\s*(https?://)?(([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]*\.[a-zA-Z]{2,11}?)([/#?\s].*)?$")):
         domain = pat.match(s)
         if domain is None:
             raise argparse.ArgumentTypeError(
