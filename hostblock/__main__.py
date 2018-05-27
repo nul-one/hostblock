@@ -20,7 +20,6 @@ class BlockedHosts(set):
     def __init__(self, hosts = set(), redirect = '0.0.0.0'):
         self.redirect = redirect
         self.update(set(hosts))
-        self.re = re.compile('^\s*((([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9]))\s*(\#.*)?')
         super()
 
     def __iter__(self):
@@ -33,8 +32,6 @@ class BlockedHosts(set):
         return "BlockedHosts('{}', {})".format(set(self), self.redirect)
 
     def __str__(self):
-        #delimiter = '\n{} '.format(self.redirect)
-        #return delimiter + delimiter.join(list(self))
         return '\n'.join(list(self))
 
     def __add__(self, other):
@@ -51,12 +48,6 @@ class BlockedHosts(set):
         self.difference_update(set(other))
         return self
         
-    def load(self, hosts_data:str):
-        for line in hosts_data.split('\n'):
-            found_host = self.re.match(line)
-            if found_host is not None:
-                self.add(found_host.groups()[0])
-
     def blockstring(self):
         delimiter = '\n{} '.format(self.redirect)
         return self.redirect + ' ' + delimiter.join(list(self))
@@ -133,15 +124,23 @@ def __parse_args():
         "apply",
         description='''Apply blocked hosts to your hosts file.''',
         )
-    hosts_argument = {
-        }
+    def url_type(s, pat=re.compile(r"^\s*(https?://)?(([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?)([/#?\s].*)?$")):
+        domain = pat.match(s)
+        if domain is None:
+            raise argparse.ArgumentTypeError(
+                "Not a valid domain or URL '{}'.".format(s))
+        return domain.group(2)
     for subparser in [ parser_ab, parser_rb, parser_aw, parser_rw ]:
         subparser.add_argument(
-            dest='hosts', metavar='host', type=str, nargs='+',
-            help='''Hostname to add/remove from local blacklist/whitelist.''',
+            dest='hosts', metavar='host', type=url_type, nargs='+',
+            help='''Hostname to add/remove from local blacklist/whitelist.
+                Any valid URL strings are accepted.''',
             )
 
     argcomplete.autocomplete(parser)
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
     return parser.parse_args()
 
 def require_sudo(func):
@@ -211,13 +210,14 @@ def main():
             hostblock.__author_email__,
             ))
         sys.exit(0)
-
     if args.cmd == 'ab':
         black, white = read_hosts()
+        print('\n'.join(set(args.hosts) - black))
         black += args.hosts
         write_hosts(black, white)
     if args.cmd == 'rb':
         black, white = read_hosts()
+        print('\n'.join(set(args.hosts) & black))
         black -= args.hosts
         write_hosts(black, white)
     if args.cmd == 'cb':
@@ -232,10 +232,12 @@ def main():
                 raise e
     if args.cmd == 'aw':
         black, white = read_hosts()
+        print('\n'.join(set(args.hosts) - white))
         white += args.hosts
         write_hosts(black, white)
     if args.cmd == 'rw':
         black, white = read_hosts()
+        print('\n'.join(set(args.hosts) & white))
         white -= args.hosts
         write_hosts(black, white)
     if args.cmd == 'cw':
