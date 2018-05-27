@@ -136,6 +136,14 @@ def __parse_args():
             help='''Hostname to add/remove from local blacklist/whitelist.
                 Any valid URL strings are accepted.''',
             )
+    for subparser in [
+            parser_list, parser_count, parser_apply, parser_lb, parser_lw]:
+        subparser.add_argument(
+            dest='configs', metavar='config', nargs='*', type=str,
+            help='''Optional list of config files to use. If not provided,
+                default config or the one defined with --config will be used
+                only. This option overrides the --config option.''',
+            )
 
     argcomplete.autocomplete(parser)
     if len(sys.argv)==1:
@@ -144,7 +152,7 @@ def __parse_args():
     return parser.parse_args()
 
 def require_sudo(func):
-    '''Call same script again with sudo and pass confing argument.'''
+    '''Call same script again with sudo and pass existing confing argument.'''
     def wrapper(*args, **kwargs):
         if os.geteuid() == 0:
             func(*args, **kwargs)
@@ -173,34 +181,41 @@ def update_hosts_file(hosts_file:str, blocked_hosts:BlockedHosts):
         print('Updating ' + hosts_file)
         f.write(existing_no_block_lines + blocked_hosts.blockstring())
 
-def init_local_config():
-    if not os.path.isfile(config_path):
-        config = {}
-        config['blacklist'] = []
-        config['whitelist'] = []
-        with open(config_path, 'w') as f:
-            f.write(json.dumps(config))
+def init_local_config(config):
+    if not os.path.isfile(config):
+        conf = {}
+        conf['blacklist'] = []
+        conf['whitelist'] = []
+        with open(config, 'w') as f:
+            f.write(json.dumps(conf))
 
-def read_hosts():
+def read_hosts(config):
     # return 2 sets of hosts: blacklist, whitelist
-    init_local_config()
-    config = {}
-    with open(config_path) as f:
-        config = json.loads(f.read())
-    return BlockedHosts(config['blacklist']), BlockedHosts(config['whitelist'])
+    init_local_config(config)
+    conf = {}
+    with open(config) as f:
+        conf = json.loads(f.read())
+    return BlockedHosts(conf['blacklist']), BlockedHosts(conf['whitelist'])
 
-def write_hosts(blacklist:BlockedHosts, whitelist:BlockedHosts):
-    config = {}
-    config['blacklist'] = list(blacklist)
-    config['whitelist'] = list(whitelist)
-    with open(config_path, 'w') as f:
-        f.write(json.dumps(config))
+def read_hosts_multy_configs(configs):
+    black, white = BlockedHosts(), BlockedHosts()
+    for config in configs:
+        another_black, another_white = read_hosts(config)
+        black += another_black
+        white += another_white
+    return black, white
 
+def write_hosts(blacklist:BlockedHosts, whitelist:BlockedHosts, config):
+    conf = {}
+    conf['blacklist'] = list(blacklist)
+    conf['whitelist'] = list(whitelist)
+    with open(config, 'w') as f:
+        f.write(json.dumps(conf))
 
 def main():
     global config_path
     args = __parse_args()
-    config_path = args.config
+    config_path = args.config # used only in require_sudo decorator
     
     if args.version:
         print("hostblock {} - Copyright {} {} <{}>".format(
@@ -211,58 +226,82 @@ def main():
             ))
         sys.exit(0)
     if args.cmd == 'ab':
-        black, white = read_hosts()
+        black, white = read_hosts(args.config)
         print('\n'.join(set(args.hosts) - black))
         black += args.hosts
-        write_hosts(black, white)
+        write_hosts(black, white, args.config)
     if args.cmd == 'rb':
-        black, white = read_hosts()
+        black, white = read_hosts(args.config)
         print('\n'.join(set(args.hosts) & black))
         black -= args.hosts
-        write_hosts(black, white)
+        write_hosts(black, white, args.config)
     if args.cmd == 'eb':
-        black, white = read_hosts()
-        write_hosts(BlockedHosts(), white)
+        black, white = read_hosts(args.config)
+        write_hosts(BlockedHosts(), white, args.config)
     if args.cmd == 'lb':
-        black, white = read_hosts()
+        black, white = set(), set()
+        if args.configs:
+            black, white = read_hosts_multy_configs(args.configs)
+        else:
+            black, white = read_hosts(args.config)
         try:
             print(str(black))
         except IOError as e:
             if e.errno != errno.EPIPE:
                 raise e
     if args.cmd == 'aw':
-        black, white = read_hosts()
+        black, white = read_hosts(args.config)
         print('\n'.join(set(args.hosts) - white))
         white += args.hosts
-        write_hosts(black, white)
+        write_hosts(black, white, args.config)
     if args.cmd == 'rw':
-        black, white = read_hosts()
+        black, white = read_hosts(args.config)
         print('\n'.join(set(args.hosts) & white))
         white -= args.hosts
-        write_hosts(black, white)
+        write_hosts(black, white, args.config)
     if args.cmd == 'ew':
-        black, white = read_hosts()
-        write_hosts(black, BlockedHosts())
+        black, white = read_hosts(args.config)
+        write_hosts(black, BlockedHosts(), args.config)
     if args.cmd == 'lw':
-        black, white = read_hosts()
+        black, white = set(), set()
+        if args.configs:
+            black, white = read_hosts_multy_configs(args.configs)
+        else:
+            black, white = read_hosts(args.config)
         try:
             print(str(white))
         except IOError as e:
             if e.errno != errno.EPIPE:
                 raise e
     if args.cmd in ('list', 'l'):
-        black, white = read_hosts()
+        black, white = set(), set()
+        if args.configs:
+            black, white = read_hosts_multy_configs(args.configs)
+        else:
+            black, white = read_hosts(args.config)
         try:
             print(str(black - white))
         except IOError as e:
             if e.errno != errno.EPIPE:
                 raise e
     if args.cmd in ('count', 'c'):
-        black, white = read_hosts()
+        black, white = set(), set()
+        if args.configs:
+            black, white = read_hosts_multy_configs(args.configs)
+        else:
+            black, white = read_hosts(args.config)
         print("blacklist: {}".format(len(black)))
         print("whitelist: {}".format(len(white)))
     if args.cmd == 'apply':
-        black, white = read_hosts()
+        black, white = set(), set()
+        if args.configs:
+            black, white = read_hosts_multy_configs(args.configs)
+        else:
+            black, white = read_hosts(args.config)
+        if len(args.configs):
+            pass
+        else:
+            black, white = read_hosts(args.config)
         update_hosts_file(args.hosts_file, black - white)
     sys.exit(0)
 
