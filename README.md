@@ -83,6 +83,8 @@ curl -s http://someonewhocares.org/hosts/zero/hosts \
     | fdump -d "130.211.230.53" -p '^0\.0\.0\.0 ([a-zA-Z0-9\._-]+)\s.*' '{0}' \
     | xargs hostblock -c .hostblock.someonewhocares ab
 
+hostblock count ~/.hostblock ~/.hostblock.notracking ~/.hostblock.someonewhocares
+
 echo "Applying to /etc/hosts..."
 hostblock apply ~/.hostblock ~/.hostblock.notracking ~/.hostblock.someonewhocares
 ```
