@@ -1,3 +1,4 @@
+
 hostblock
 ==================================================
 [![Build Status](https://travis-ci.org/nul-one/hostblock.png)](https://travis-ci.org/nul-one/hostblock)
@@ -7,6 +8,7 @@ hostblock
 
 Block domains using hosts file entries.
 
+
 Installation
 -------------------------
 
@@ -15,6 +17,7 @@ Installation
 
 ### install from github (latest master)
 `pip3 install -U git+https://github.com/nul-one/hostblock.git`
+
 
 Usage
 -------------------------
@@ -38,14 +41,55 @@ Here is how you can control your local list:
 - `hostblock list` list hosts from blacklist that do not appear in whitelist
 - `hostblock count` show counts for blacklist and whitelist
 
+Commands that don't change config files such as `lw`, `lb`, `list` and `count` can be followed by a list of configuration files. In that case default config file or `--config` option will be ignored and unified data will be displayed. Config files will not be touched in either case:
+
+```bash
+hostblock count first.config second.config third.config
+```
+
+The `apply` option can be followed by list of configs in similar manner. If so, unified config data will be applied to `/etc/hosts` or other selected hostname:
+
+
+```bash
+hostblock apply .hostblock first.config second.config third.config
+```
+
+In example above, we listed the default `.hostblock` config file. If we didn't, it wouldn't be used.
+
+
 Importing
 -------------------------
 
-To import a list of hosts, just pass it as argument to `ab` or `aw` command. Here is example on how to import `http://someonewhocares.org/hosts` list into your blacklist:
+To import a list of hosts, just pass it as argument to `ab` or `aw` command.  
+Here is an example bash script that will import lists from `http://someonewhocares.org` and `https://github.com/notracking/hosts-blocklists` lists into blacklist of multiple config files and then apply those including your default one to your hosts file:
 
 ```bash
-curl http://someonewhocares.org/hosts/zero/hosts | grep '^0\.0\.0\.0\s' | awk '{print $2}' | xargs hostblock ab
+#!/bin/bash
+
+set -e
+
+echo "Updating 'notracking/hosts'..."
+curl -s https://raw.githubusercontent.com/notracking/hosts-blocklists/master/domains.txt \
+    | fdump -p '^address=/(.*)/.*$' '{0}' \
+    | xargs hostblock -c ~/.hostblock.notracking ab
+
+echo "Updating 'notracking/domains'..."
+curl -s https://raw.githubusercontent.com/notracking/hosts-blocklists/master/domains.txt \
+    | fdump -p '^address=/(.*)/.*$' '{0}' \
+    | xargs hostblock -c ~/.hostblock.notracking ab
+
+echo "Updating 'someonewhocares/hosts'..."
+curl -s http://someonewhocares.org/hosts/zero/hosts \
+    | fdump -d "130.211.230.53" -p '^0\.0\.0\.0 ([a-zA-Z0-9\._-]+)\s.*' '{0}' \
+    | xargs hostblock -c .hostblock.someonewhocares ab
+
+echo "Applying to /etc/hosts..."
+hostblock apply ~/.hostblock ~/.hostblock.notracking ~/.hostblock.someonewhocares
 ```
+
+The above example uses [fdump](https://github.com/nul-one/fdump) tool for easy filtering. You may install the tool with `pip3 install fdump` or use grep/awk alternatives in it's place.  
+I use the above script as a daily cron-job.
+
 
 Merging
 -------------------------
@@ -57,10 +101,11 @@ hostblock --config friends.hostblock lb | xargs hostblock ab
 hostblock --config friends.hostblock lw | xargs hostblock aw
 ```
 
+
 Notes
 -------------------------
 
-- **Do not use sudo** when running hostblock commands. Hostblock will ask for sudo password when required to modify hosts file. If you use `sudo` then hostblock will think you are root user and will look for settings file in `/root/.hostblock` thinking that's your home dir. If you really need to use sudo, make sure to specify hostblock config with `--config` option.
+- **Do not use sudo** when running hostblock commands. Hostblock will ask for sudo password when required to modify hosts file. If you use `sudo` then hostblock will think you are root user and will look for settings file in `/root/.hostblock` thinking that's your home dir. If you really need to use sudo, make sure to specify proper hostblock config with `--config` option.
 - When adding duplicate domains to your blacklist or whitelist, hostblock will keep only single entry, so no worries!
 
 
