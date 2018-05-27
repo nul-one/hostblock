@@ -88,9 +88,9 @@ def __parse_args():
         "rb",
         description='''Remove host(s) from local blacklist.''',
         )
-    parser_cb = subparsers.add_parser(
-        "cb",
-        description='''Remove all hosts from local blacklist.''',
+    parser_eb = subparsers.add_parser(
+        "eb",
+        description='''Empty local blacklist.''',
         )
     parser_lb = subparsers.add_parser(
         "lb",
@@ -104,9 +104,9 @@ def __parse_args():
         "rw",
         description='''Remove host(s) from local whitelist.''',
         )
-    parser_cw = subparsers.add_parser(
-        "cw",
-        description='''Remove all hosts from local whitelist.''',
+    parser_ew = subparsers.add_parser(
+        "ew",
+        description='''Empty local whitelist.''',
         )
     parser_lw = subparsers.add_parser(
         "lw",
@@ -117,7 +117,7 @@ def __parse_args():
         description='''List all hosts that will be blocked.''',
         )
     parser_count = subparsers.add_parser(
-        "count",
+        "count", aliases=["c"],
         description='''Count all hosts in blacklist and whitelist.''',
         )
     parser_apply = subparsers.add_parser(
@@ -220,7 +220,7 @@ def main():
         print('\n'.join(set(args.hosts) & black))
         black -= args.hosts
         write_hosts(black, white)
-    if args.cmd == 'cb':
+    if args.cmd == 'eb':
         black, white = read_hosts()
         write_hosts(BlockedHosts(), white)
     if args.cmd == 'lb':
@@ -240,7 +240,7 @@ def main():
         print('\n'.join(set(args.hosts) & white))
         white -= args.hosts
         write_hosts(black, white)
-    if args.cmd == 'cw':
+    if args.cmd == 'ew':
         black, white = read_hosts()
         write_hosts(black, BlockedHosts())
     if args.cmd == 'lw':
@@ -257,7 +257,7 @@ def main():
         except IOError as e:
             if e.errno != errno.EPIPE:
                 raise e
-    if args.cmd == 'count':
+    if args.cmd in ('count', 'c'):
         black, white = read_hosts()
         print("blacklist: {}".format(len(black)))
         print("whitelist: {}".format(len(white)))
