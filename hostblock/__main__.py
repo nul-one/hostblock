@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import hostblock
 
 global config_path
 
